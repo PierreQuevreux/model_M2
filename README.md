@@ -1,15 +1,15 @@
 # model_M2
-Models used in the article "Impact of nutrient cycling on food web stability"
+Models used in the article "Interplay between the paradox of enrichment and nutrient cycling in food webs"
 
 Program coded in C++ and using the GSL ODE solver (v 1.13).
 
 # Foodchain
-Simulation of a tri-trophic food chain with a primary producer, a herbivore and a carnivore. The program records the dynamics of the biomasses and nutrients. The data for a diagram of bifurcation are also produced (calculations of local extrema along parameter gradients).
+Simulation of a food chain. The program records the dynamics of the biomasses and nutrients.
 
 # Foodweb
-Simulation of a complex food web with up to 50 interactin species. The global flows of matter and the average biomasses are recorded. Time dynamics of species are also recorded.
+Simulation of a complex food web with up to 50 interacting species. The global flows of matter and the average biomasses are recorded. Time dynamics of species are also recorded. The code uses the openMP library for parallel calculation.
 
-# Foodweb_simulation
-Simulations testing the effect of nutrient cycling along an enrichment gradient. Only the general data such as average species biomasses, coefficients of variation or global flows are recorded.
+# Figures.R
+R code to produce the figures of the article
 
 Each program stores the data in a "data" or "results" folder containing a README.txt detailing the recorded variables and parameters.
