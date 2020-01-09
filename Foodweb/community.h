@@ -13,6 +13,8 @@ private :
     int _nbPrimaryProducer; // number of primary producer
     int _nbResource; // number of resources
     int _dim; // dimension of the system (resources+species)
+    int _nbFlux; // number of ecosystem flows
+    int _nbTotB; // number of recorded aggregated biomasses
     double _I; // nutrient input
     double _L; // nutrient leaching rate
     double _b; // prey/predator body mass ratio limit
@@ -34,22 +36,40 @@ private :
     //INTEGRATION STRUCTURES
     int _nba; // number of possible interactions
     double *_pop; // pointer toward the vector of R,D,X and a
-    double *_popRecy; // pointer toward the vector of nutrient recycled by each species
     Species **_params; // pointer toward the vector of pointers towards the instanced classes
     double *_TL; // pointer toward the vector of trophic levels
-    double *_meanTL; // pointer toward the vector of trophic levels
+    double *_meanTL; // pointer toward the vector of average trophic levels
     double *_tExt; // pointer toward the vector of extinction time of species
-    double *_biomass; // sum of biomass for each species
+    double *_meanBiomass; // sum of biomass for each species
     double *_biomassSQ; // sum of square of biomass for each species
-    double *_CV; // coefficient of variation of the biomass of species
+    double *_biomassCV; // coefficient of variation of the biomass of species
+    double *_recy; // nutrients recycled by each species
+    double *_meanRecy; // average amount of nutrients recycled by each species
+    double *_recySQ; // sum of square of nutrients recycled by each species
+    double *_recyCV; // coefficient of variation of nutrients recycled by each species
+    double *_detritus; // detritus produced by each species
+    double *_meanDetritus; // average amount of detritus produced by each species
+    double *_detritusSQ; // sum of square of detritus produced by each species
+    double *_detritusCV; // coefficient of variation of detritus produced by each species
+    double *_flux; // recycled nutrients, nutrients recycled by primary, secondary producers, total direct recycling, indirect recycling
+    double *_sumFlux; // total primary production, secondary production, recycled nutrients, nutrients recycled by primary and secondary producers and indirect recycling
+    double *_sumFluxSQ; // total square primary production, secondary production, recycled nutrients and nutrients recycled by primary and secondary producers
+    double *_fluxCV; //coefficient of variation of primary production, secondary production, recycled nutrients and nutrients recycled by primary and secondary producers
+    double *_totalBiomass; // total biomass of all species, PP and SP
+    double *_meanTotalBiomass; // sum of total biomass of all species, PP and SP
+    double *_totalBiomassSQ; // sum of square of total biomass of all species, PP and SP
+    double *_totalBiomassCV; // coefficient of variation of the total biomass of all species, PP and SP
+    double *_prod; // biomass production of all species, PP and SP
+    double *_meanProd; // sum of biomass production of all species, PP and SP
+    double *_prodSQ; // sum of square of biomass production of all species, PP and SP
+    double *_prodCV; // coefficient of variation of the biomass production of all species, PP and SP
+    double *_mort; // total density dependent mortality of all species, PP and SP
+    double *_meanMort; // sum of total density dependent mortality of all species, PP and SP
+    double *_mortSQ; // sum of square of total density dependent mortality of all species, PP and SP
+    double *_mortCV; // coefficient of variation of the total density dependent mortality of all species, PP and SP
     int _nPoint; // number of recorded points counter
 
     //RECORDED OUT PUT
-    double _flux[3]; // primary production, secondary production and recycled nutrients
-    double _sumFlux[3]; // total primary production, secondary production and recycled nutrients
-    double _sumFluxSQ[3]; // total square primary production, secondary production and recycled nutrients
-    double _fluxCV[3]; //coefficient of variation of primary production, secondary production and recycled nutrients
-    double _recy[2]; // nutrients recycled by primary and secondary producers
     double _connectance;
     double _TLmax; // maximal TL
     int _diversityFinal; // number of species at the end
@@ -57,20 +77,24 @@ private :
 
 public :
     // CREATION OF THE FOODWEB
-    void setMass(double Mmin, double Mmax); // create the vector of body mass of organisms sorted by ascendant order
+    void setMass(double Mmin, double Mmax, int seed); // create the vector of body mass of organisms sorted by ascendant order
     void setObject(); // create the vectors of populations and parameters
-    void setSpecies(double q, double qp, double B, double e[], double CN[], double r, double K, double J, double f, double b, double P0[]); // create the primary producers
+    void setSpecies(double q, double qp, double B, double e[], double CN[], double r, double K, double J, double f, double b, double **pop); // create the primary producers
     void setForagingEffort(); // create the foraging effort and set the interactions
-    void setResources(double R0[]); // initialize the vector of populations for the resources
+    void setResources(double **pop); // initialize the vector of populations for the resources
     //INTEGRATION
-    int Dynamic(double t, double tFinal, double tRecord, double tStep, double h, double extinctionThreshold, double interactionThreshold, string path);
-    void output(string path); // write the results in the recording structures
+    void resetVariables(double I, double delta, double d); // change some variables
+    int Dynamic(double t, double tFinal, double tRecord, double tStep, double h, double extinctionThreshold, double interactionThreshold, bool recyRec,
+                string parameterValue, bool time_series_record, ofstream& fileTimeSeriesData, ofstream& fileTimeSeriesBiomass, ofstream& fileTimeSeriesRecy, ofstream& fileTimeSeriesDetritus);
+    void output(double **data, double M[], double **biomass, double **biomassCV, double **recy, double **recyCV, double **detritus, double **detritusCV, double **TL, double **tExt, int run); // write the results in the recording structures
 
     //constructor
     Community(int diversity
               ,int nbPrimaryProducer
               ,int nbResources
               ,int dim
+              ,int nbFlux
+              ,int nbTotB
               ,double I
               ,double L
               ,double b

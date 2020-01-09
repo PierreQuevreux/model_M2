@@ -120,12 +120,10 @@ Species::Species(double M
                  }
 // destructor
 Species::~Species(){
-    if (_nbPred != 0){
-        delete[] _pred;
-        delete[] _IDpred;
-        delete[] _wIDpred;
-    }
-    if (_nbPrey != 0){
+    delete[] _pred;
+    delete[] _IDpred;
+    delete[] _wIDpred;
+    if (_type != "Plant"){
         delete[] _prey;
         delete[] _IDprey;
         delete[] _wIDprey;
