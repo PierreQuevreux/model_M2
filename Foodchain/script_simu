@@ -1,0 +1,14 @@
+#!/bin/bash
+
+init=0
+nbSimu=4
+end=$((init+nbSimu-1))
+
+
+for i in `seq $init $end`; do
+g++ -W -Wall -std=gnu++11 main_$i.cpp community.cpp functions.cpp -lm -lgsl -lgslcblas -o simulation_$i
+done
+
+for i in `seq $init $end`; do
+nohup ./simulation_$i > sortieSimu_$i.txt &
+done
