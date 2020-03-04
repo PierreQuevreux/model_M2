@@ -17,6 +17,7 @@ path_rep="results_replicates/"
 path_thresh="results_threshold/"
 path_beta="results_beta/"
 path_KLaB="results_K_L_a_B/"
+path_aB="results_a_B/"
 path_A="results_A/"
 path_FR="results_FR/"
 path_CN="results_CN/"
@@ -2093,29 +2094,172 @@ graph<-ggdraw(xlim = c(0, 2.2), ylim = c(0, 2)) +
   draw_plot_label(c("A","B","C","D"), c(0,1,0,1), c(2,2,1,1), size = 25)
 ggsave("supp_sensitivity_beta.pdf",graph, width = 14, height = 12, device = cairo_pdf)
 
-### Miscelanous parameters ####
+### Attack rate and beta  ####
+data2<-read.table(paste(path_aB,"data.txt",sep=""),sep=';',header=T)
+data2[is.na(data2)] <- 0
+data2$persistence<-(data2$NbSpeciesFinal/data2$NbSpeciesInit)
+data2$d<-as.factor(1)
+data2$delta<-as.factor(1)
+levels(data2$d)<-c(d02)
+levels(data2$delta)<-c(del02)
+
+# Persistence
+databis<-summarySE(data2[data2$model=="C",], measurevar="persistence", groupvars=c("a","B","I","d","delta","model"))
+p1<-ggplot(data=databis)+
+      geom_raster(aes(a,B,fill=persistence))+
+      geom_point(aes(0.1,0.001),color="red",size=5)+
+      facet_grid(delta~d, labeller=label_parsed)+
+      theme+
+      scale_fill_gradient(low = "light blue", high = "black","Species\npersistence")+
+      x_axis_log10+
+      y_axis_log10+
+      xlab(expression(paste("Attack rate allometric constant ",italic("a"))))+
+      ylab(expression(atop("Density dependent mortality",paste("rate allometric constant ",italic("\u03B2")))))
+
+databis<-dcast(data2,simu_ID+a+B+I+d+delta~model,value.var="persistence")
+databis$dif<-abs(databis$C-databis$SC)
+databis<-summarySE(databis, measurevar="dif", groupvars=c("a","B","I","d","delta"))
+p3<-ggplot(data=databis)+
+      geom_raster(aes(a,B,fill=dif))+
+      geom_point(aes(0.1,0.001),color="red",size=5)+
+      facet_grid(delta~d, labeller=label_parsed)+
+      theme+
+      scale_fill_gradient(low = "white", high = "blue","Species\npersistence\ndifference\nbetween C\nand SC\nmodels")+
+      x_axis_log10+
+      y_axis_log10+
+      xlab(expression(paste("Attack rate allometric constant ",italic("a"))))+
+      ylab(expression(atop("Density dependent mortality",paste("rate allometric constant ",italic("\u03B2")))))
+
+# Coefficient of variation
+nparams=5
+biomass2<-read.table(paste(path_aB,"biomass.txt",sep=""),sep=';',header=T)
+biomass2<-biomass2[,-which(names(biomass2)%in%c("seed","N","D"))]
+biomass2$biomass_tot<-rowSums(biomass2[,(nparams+1):dim(biomass2)[2]])
+biomass2[,(nparams+1):(dim(biomass2)[2]-1)]<-biomass2[,(nparams+1):(dim(biomass2)[2]-1)]/biomass2$biomass_tot
+biomass2$biomass_tot<-NULL
+# biomass CV
+biomassCV2<-read.table(paste(path_aB,"biomassCV.txt",sep=""),sep=';',header=T)
+biomassCV2<-biomassCV2[,-which(names(biomassCV2)%in%c("seed","N","D"))]
+# CV weighted by the average biomass
+for(i in c((nparams+1):dim(databis)[2])){
+  biomassCV2[,i]<-biomassCV2[,i]*biomass2[,i]
+}
+biomassCV2[is.na(biomassCV2)]=0
+biomassCV2$CV<-rowSums(biomassCV2[,(nparams+1):dim(biomassCV2)[2]])
+# persistence
+biomassCV2$persistence<-data2$persistence
+biomassCV2$d<-as.factor(1)
+biomassCV2$delta<-as.factor(1)
+levels(biomassCV2$d)<-c(d02)
+levels(biomassCV2$delta)<-c(del02)
+void<-expand.grid(a=unique(biomassCV2$a),
+                  B=unique(biomassCV2$B),
+                  I=unique(biomassCV2$I),
+                  d=unique(biomassCV2$d),
+                  delta=unique(biomassCV2$delta))
+biomassCV2<-biomassCV2[biomassCV2$persistence>0,]
+
+databis<-summarySE(biomassCV2[biomassCV2$model=="C",], measurevar="CV", groupvars=c("a","B","I","d",'delta'),na.rm=TRUE)
+databis<-merge(databis,void,by=c("a","B","I","d","delta"),all.y=T)
+databis$CV[is.na(databis$CV)]=0
+p2<-ggplot(data=databis)+
+      geom_raster(aes(a,B,fill=CV))+
+      geom_point(aes(0.1,0.001),color="red",size=5)+
+      facet_grid(delta~d, labeller=label_parsed)+
+      theme+
+      scale_fill_gradient(low = "light blue", high = "black","Average\nbiomass CV")+
+      x_axis_log10+
+      y_axis_log10+
+      xlab(expression(paste("Attack rate allometric constant ",italic("a"))))+
+      ylab(expression(atop("Density dependent mortality",paste("rate allometric constant ",italic("\u03B2")))))
+
+databis<-biomassCV2
+databis$persistence<-NULL
+databis<-melt(databis,id.vars = c("simu_ID","a","B","I","d","delta","model"),
+              variable.name = "species", 
+              value.name = "CV")
+databis<-dcast(databis,simu_ID+a+B+I+d+delta+species~model,value.var="CV")
+databis$dif<-abs(databis$SC-databis$C)/databis$SC
+databis<-databis[is.na(databis$dif)==F,]
+threshold=1e-4
+databis$dif[databis$SC<threshold]=0
+databis$dif[databis$C<threshold]=0
+databis<-summarySE(databis, measurevar="dif", groupvars=c("a","B","I","d","delta"))
+databis<-merge(databis,void,by=c("a","B","I","d","delta"),all.y=T)
+databis$dif[is.na(databis$dif)]=0
+p4<-ggplot(data=databis)+
+      geom_raster(aes(a,B,fill=dif))+
+      geom_point(aes(0.1,0.001),color="red",size=5)+
+      facet_grid(delta~d, labeller=label_parsed)+
+      theme+
+      scale_fill_gradient2(low = "red", mid = "white" , high = "blue","Relative\nbiomass CV\ndifference\nbetween C\nand SC\nmodels")+
+      x_axis_log10+
+      y_axis_log10+
+      xlab(expression(paste("Attack rate allometric constant ",italic("a"))))+
+      ylab(expression(atop("Density dependent mortality",paste("rate allometric constant ",italic("\u03B2")))))
+
+
+# Food web regims
+databis<-summarySE(biomassCV2[biomassCV2$model=="C",], measurevar="CV", groupvars=c("a","B","I","d",'delta'),na.rm=TRUE)
+databis<-merge(databis,void,by=c("a","B","I","d","delta"),all.y=T)
+databis$CV[is.na(databis$CV)]=0
+databis2<-summarySE(data2[data2$model=="C",], measurevar="TLmax", groupvars=c("a","B","I","d","delta","model"))
+databis2<-databis2[,which(names(databis2)%in%c("a","B","I","d","delta","model","TLmax"))]
+databis<-merge(databis,databis2,by=c("a","B","I","d","delta"))
+rm(databis2)
+
+p5<-ggplot(data=databis)+
+      geom_raster(aes(a,B,fill=TLmax))+
+      geom_point(aes(0.1,0.001),colour="red",size=5)+
+      facet_grid(delta~d, labeller=label_parsed)+
+      theme+
+      scale_fill_gradientn(name="Maximum\ntrophic\nlevel",
+                           colours=c("white","chartreuse3","cadetblue4","red3","darkred"))+
+      x_axis_log10+
+      y_axis_log10+
+      xlab(expression(paste("Attack rate allometric constant ",italic("a"))))+
+      ylab(expression(atop("Density dependent mortality",paste("rate allometric constant ",italic("\u03B2")))))
+
+databis$TLmax[databis$TLmax<1]=floor(databis$TLmax[databis$TLmax<1])
+databis$regime="0"
+threshold=1e-4
+databis$regime[databis$TLmax==0]="collapse"
+databis$regime[databis$CV<threshold & databis$TLmax>0]="fixed points"
+databis$regime[databis$CV>threshold & databis$TLmax>0]="limit cycles"
+
+p6<-ggplot(data=databis)+
+      geom_raster(aes(a,B,fill=regime))+
+      geom_point(aes(0.1,0.001),colour="red",size=5)+
+      facet_grid(delta~d, labeller=label_parsed)+
+      theme+
+      scale_fill_manual(name = "Regime",
+                        values = c("grey","gold2","darkorchid4"))+
+      x_axis_log10+
+      y_axis_log10+
+      xlab(expression(paste("Attack rate allometric constant ",italic("a"))))+
+      ylab(expression(atop("Density dependent mortality",paste("rate allometric constant ",italic("\u03B2")))))
+
+# Final graph
+graph<-plot_grid(p1, p2, p3, p4, p5, p6,
+                 labels = c("A","B","C","D","E","F"), label_size = 25,
+                 nrow = 3, align = "hv")
+ggsave("supp_sensitivity_a_B.pdf",graph, width = 15, height = 15, device = cairo_pdf)
+#ggsave("supp_sensitivity_a_B.png",graph, width = 15, height = 15)
+
+### Leaching rate and half saturation constant ####
 data1<-read.table(paste(path_KLaB,"data0.txt",sep=""),sep=';',header=T)
 file<-read.table(paste(path_KLaB,"data1.txt",sep=""),sep=';',header=T)
 data1<-rbind(data1,file)
-data2<-read.table(paste(path_KLaB,"data2.txt",sep=""),sep=';',header=T)
-file<-read.table(paste(path_KLaB,"data3.txt",sep=""),sep=';',header=T)
-data2<-rbind(data2,file)
 rm(file)
 
 data1[is.na(data1)] <- 0
-data2[is.na(data2)] <- 0
 data1$persistence<-(data1$NbSpeciesFinal/data1$NbSpeciesInit)
-data2$persistence<-(data2$NbSpeciesFinal/data2$NbSpeciesInit)
 data1$d<-as.factor(data1$d)
 data1$delta<-as.factor(data1$delta)
 levels(data1$d)<-c(d02)
 levels(data1$delta)<-c(del02)
-data2$d<-as.factor(data2$d)
-data2$delta<-as.factor(data2$delta)
-levels(data2$d)<-c(d02)
-levels(data2$delta)<-c(del02)
 
-# Persistence ####
+# Persistence
 databis <- summarySE(data1, measurevar="persistence", groupvars=c("K","L","I","d","delta"))
 databis$K[databis$K==1]=0
 p1<-ggplot(data=databis)+
@@ -2128,22 +2272,10 @@ p1<-ggplot(data=databis)+
       xlab(expression(paste("Half saturation of nutrients uptake ",italic("K"))))+
       ylab(expression(paste("Loss rate of nutrients ",italic("\u2113"))))
 
-databis <- summarySE(data2, measurevar="persistence", groupvars=c("a","B","I","d","delta"))
-p2<-ggplot(data=databis)+
-      geom_raster(aes(a,B,fill=persistence))+
-      geom_point(aes(0.1,0.001),color="red",size=5)+
-      facet_grid(delta~d, labeller=label_parsed)+
-      theme+
-      scale_fill_gradient(low = "light blue", high = "black","Species\npersistence")+
-      x_axis_log10+
-      y_axis_log10+
-      xlab(expression(paste("Attack rate ",italic("a"))))+
-      ylab(expression(paste("Intraspecific competition coefficient ",italic("\u03B2"))))
-
-# Coefficient of variation ####
+# Coefficient of variation
 databis <- summarySE(data1[data1$persistence>0,], measurevar="CV", groupvars=c("K","L","I","d","delta"))
 databis$K[databis$K==1]=0
-p3<-ggplot(data=databis)+
+p2<-ggplot(data=databis)+
       geom_raster(aes(K,L,fill=CV))+
       geom_point(aes(10,0.2),color="red",size=5)+
       facet_grid(delta~d, labeller=label_parsed)+
@@ -2153,24 +2285,11 @@ p3<-ggplot(data=databis)+
       xlab(expression(paste("Half saturation of nutrients uptake ",italic("K"))))+
       ylab(expression(paste("Loss rate of nutrients ",italic("\u2113"))))
 
-databis <- summarySE(data2[data2$persistence>0,], measurevar="CV", groupvars=c("a","B","I","d","delta"))
-p4<-ggplot(data=databis)+
-      geom_raster(aes(a,B,fill=CV))+
-      geom_point(aes(0.1,0.001),color="red",size=5)+
-      facet_grid(delta~d, labeller=label_parsed)+
-      theme+
-      scale_fill_gradient(low = "light blue", high = "black","Average\nbiomass CV")+
-      x_axis_log10+
-      y_axis_log10+
-      xlab(expression(paste("Attack rate ",italic("a"))))+
-      ylab(expression(paste("Intraspecific competition coefficient ",italic("\u03B2"))))
-
-# Final graph ####
-graph<-plot_grid(p2, p4, p1, p3,
-                 labels = c("A","B","C","D"), label_size = 25,
-                 nrow = 2, align = "hv")
-ggsave("supp_sensitivity_K_l_a_B.pdf",graph, width = 16, height = 12, device = cairo_pdf)
-
+# Final graph
+graph<-plot_grid(p1, p2,
+                 labels = c("A","B"), label_size = 25,
+                 nrow = 1, align = "hv")
+ggsave("supp_sensitivity_K_l.pdf",graph, width = 14, height = 5, device = cairo_pdf)
 
 ### A ####
 data1<-read.table(paste(path_A,"data.txt",sep=""),sep=';',header=T)
@@ -2346,8 +2465,8 @@ handlingtime<-function(b,y,Mi,Mj){
 
 b=0.05
 y=8*0.27
-Mj=1000
-Mi<-seq(5,45,by=0.01)
+Mj=1000 # predator body mass
+Mi<-seq(5,45,by=0.01) # prey body mass
 
 htime<-handlingtime(b,y,Mi,Mj)
 
